@@ -333,7 +333,7 @@ def genReference(imgStack, numRefImg, v1, v2, maxProject=False, rippleFilt=False
     return reference
 
 
-def computeMotionShift(stack, refImage, upsampleFactor, sigmaval = 2, doFilter = False, stdFactor = 2, showShiftFig = False, inZ=False, mask=None, stdFactorZ=None):
+def computeMotionShift(stack, refImage, upsampleFactor, sigmaval = 2, doFilter = False, stdFactor = 2, showShiftFig = False, inZ=False, mask=None, stdFactorZ=None, maxShift=None):
     from skimage.registration import phase_cross_correlation
     
     if len(refImage.shape) == 3:
@@ -437,8 +437,13 @@ def computeMotionShift(stack, refImage, upsampleFactor, sigmaval = 2, doFilter =
                 shiftFilt_x_interp = shiftFilt_x
                 shiftFilt_y_interp = shiftFilt_y
                 for p in range(stack['planes [µm]'].size):
-                    shiftFilt_x[p,abs(shiftFilt_x[p,:]-np.mean(shiftFilt_x[p,:])) > stdFactor*np.std(shiftFilt_x.flatten())] = np.nan
-                    shiftFilt_y[p,abs(shiftFilt_y[p,:]-np.mean(shiftFilt_y[p,:])) > stdFactor*np.std(shiftFilt_y.flatten())] = np.nan
+                    outlier_x = abs(shiftFilt_x[p,:]-np.mean(shiftFilt_x[p,:])) > stdFactor*np.std(shiftFilt_x.flatten())
+                    outlier_y = abs(shiftFilt_y[p,:]-np.mean(shiftFilt_y[p,:])) > stdFactor*np.std(shiftFilt_y.flatten())
+                    if maxShift is not None:
+                        outlier_x = outlier_x | (abs(shiftFilt_x[p,:]) > maxShift)
+                        outlier_y = outlier_y | (abs(shiftFilt_y[p,:]) > maxShift)
+                    shiftFilt_x[p,outlier_x] = np.nan
+                    shiftFilt_y[p,outlier_y] = np.nan
 
                     allT = np.arange(len(shiftFilt_x[p,:]))
                     shiftFilt_x_interp[p,:] = np.interp(allT, allT[~np.isnan(shiftFilt_x[p,:])], shiftFilt_x[p,~np.isnan(shiftFilt_x[p,:])])
@@ -459,9 +464,14 @@ def computeMotionShift(stack, refImage, upsampleFactor, sigmaval = 2, doFilter =
                 shiftFilt_z = shift[0,:].copy()
                 shiftFilt_x = shift[1,:].copy()
                 shiftFilt_y = shift[2,:].copy()
+                outlier_x = abs(shiftFilt_x-np.mean(shiftFilt_x)) > stdFactor*np.std(shiftFilt_x)
+                outlier_y = abs(shiftFilt_y-np.mean(shiftFilt_y)) > stdFactor*np.std(shiftFilt_y)
+                if maxShift is not None:
+                    outlier_x = outlier_x | (abs(shiftFilt_x) > maxShift)
+                    outlier_y = outlier_y | (abs(shiftFilt_y) > maxShift)
                 shiftFilt_z[abs(shiftFilt_z-np.mean(shiftFilt_z)) > stdFactorZ*np.std(shiftFilt_z)] = np.nan
-                shiftFilt_x[abs(shiftFilt_x-np.mean(shiftFilt_x)) > stdFactor*np.std(shiftFilt_x)] = np.nan
-                shiftFilt_y[abs(shiftFilt_y-np.mean(shiftFilt_y)) > stdFactor*np.std(shiftFilt_y)] = np.nan
+                shiftFilt_x[outlier_x] = np.nan
+                shiftFilt_y[outlier_y] = np.nan
                 
                 allT = np.arange(len(shiftFilt_x))
                 shiftFilt_z_interp = np.interp(allT, allT[~np.isnan(shiftFilt_z)], shiftFilt_z[~np.isnan(shiftFilt_z)])
@@ -478,8 +488,13 @@ def computeMotionShift(stack, refImage, upsampleFactor, sigmaval = 2, doFilter =
         else:
             shiftFilt_x = shift[0,:].copy()
             shiftFilt_y = shift[1,:].copy()
-            shiftFilt_x[abs(shiftFilt_x) > stdFactor*np.std(shiftFilt_x)] = np.nan
-            shiftFilt_y[abs(shiftFilt_y) > stdFactor*np.std(shiftFilt_y)] = np.nan
+            outlier_x = abs(shiftFilt_x) > stdFactor*np.std(shiftFilt_x)
+            outlier_y = abs(shiftFilt_y) > stdFactor*np.std(shiftFilt_y)
+            if maxShift is not None:
+                outlier_x = outlier_x | (abs(shiftFilt_x) > maxShift)
+                outlier_y = outlier_y | (abs(shiftFilt_y) > maxShift)
+            shiftFilt_x[outlier_x] = np.nan
+            shiftFilt_y[outlier_y] = np.nan
 
             allT = np.arange(len(shiftFilt_x))
             shiftFilt_x_interp = np.interp(allT, allT[~np.isnan(shiftFilt_x)], shiftFilt_x[~np.isnan(shiftFilt_x)])
